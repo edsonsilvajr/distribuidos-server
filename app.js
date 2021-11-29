@@ -22,11 +22,12 @@ const client = new MongoClient(uri, {
 setInterval(showUsersLogged, 30000);
 // ----------------------------------------------
 
-let userToUpdate = null;
-const port = process.env.PORT | 8082;
+const port = 22000;
 server.listen(port, () => console.log(`Server listening on port ${port}`));
+let userToUpdate = null;
 
 server.on("connection", async (socket, req) => {
+  socket.setEncoding("utf8");
   console.log(
     "Conectando usuário " +
       socket.remoteAddress +
@@ -35,13 +36,11 @@ server.on("connection", async (socket, req) => {
       "..."
   );
   await client.connect();
-  console.log(
-    "bem vindo!" + socket.remoteAddress + ":" + socket.remotePort + "\n"
-  );
   usersLoggedOn.push({
     address: socket.remoteAddress,
     port: socket.remotePort,
   });
+  showUsersLogged();
 
   socket.on("data", async (data) => {
     console.log(
@@ -50,27 +49,31 @@ server.on("connection", async (socket, req) => {
         ":" +
         socket.remotePort +
         " = " +
-        data.toString("utf8")
+        data
     );
 
+    console.log(data, "verificando antes da conversão");
     data = data.toString("utf8").replace("\r", "");
     let message;
     let json = null;
+
     try {
       json = JSON.parse(data);
       if (typeof json !== "object") {
         throw "TBD";
       } else {
         message = await treatRequest(json);
-        console.log(
-          "enviando para " +
-            socket.remoteAddress +
-            ":" +
-            socket.remotePort +
-            " = " +
-            message
-        );
-        socket.write(message);
+        if (message != "") {
+          console.log(
+            "enviando para " +
+              socket.remoteAddress +
+              ":" +
+              socket.remotePort +
+              " = " +
+              message
+          );
+          socket.write(message);
+        }
       }
     } catch (e) {}
   });
@@ -79,13 +82,12 @@ server.on("connection", async (socket, req) => {
     socket.write("a");
   });
 
-  socket.on("error", (error) => {
-    console.log(error);
-  });
+  socket.on("error", (error) => {});
 
   socket.on("close", (stream) => {
     console.log(
-      "usuário " +
+      "\x1b[31m",
+      "\n -> usuário " +
         socket.remoteAddress +
         ":" +
         socket.remotePort +
@@ -97,22 +99,30 @@ server.on("connection", async (socket, req) => {
       );
     });
     showUsersLogged();
-    client.close();
+    //client.close();
   });
 });
 
 function showUsersLogged() {
-  console.log("\n************* Usuários Logados ************\n");
+  console.log(
+    "\x1b[36m%s\x1b[0m",
+    "\n************* Usuários Logados ************\n"
+  );
   usersLoggedOn.forEach((user) => {
-    console.log("-> " + user.address + ":" + user.port);
+    console.log("\x1b[32m%s\x1b[0m", "-> " + user.address + ":" + user.port);
   });
-  console.log("\n*******************************************\n");
+  console.log(
+    "\x1b[36m%s\x1b[0m",
+    "\n*******************************************\n"
+  );
 }
 function treatRequest(json) {
   const protocol = json.protocol;
   switch (protocol) {
     case 100:
       return treatLogin(json);
+    case 199:
+      return treatLogout();
     case 700:
       return treatCadastro(json);
     case 710:
@@ -122,6 +132,11 @@ function treatRequest(json) {
     default:
       break;
   }
+}
+
+function treatLogout() {
+  console.log("Usuário requisitou o logout!");
+  return "";
 }
 
 async function treatCadastro(json) {
@@ -261,12 +276,10 @@ async function treatUpdateRequest(json) {
     .findOne({ username: json.message.username });
 
   await promise.then((res, err) => {
-    console.log(res, err, "daqui");
     if (res) {
       user = { ...res };
       delete user._id;
       user.result = true;
-      console.log(user);
     }
   });
   if (user) {
@@ -333,7 +346,6 @@ async function treatUpdate(json) {
     protocol: 721,
     message: {
       result: true,
-      reason: "Usuário alterado com sucesso!",
     },
   });
 }
