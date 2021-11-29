@@ -52,8 +52,6 @@ server.on("connection", async (socket, req) => {
         data
     );
 
-    console.log(data, "verificando antes da conversão");
-    data = data.toString("utf8").replace("\r", "");
     let message;
     let json = null;
 
