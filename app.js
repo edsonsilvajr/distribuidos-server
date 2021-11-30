@@ -41,8 +41,9 @@ server.on("connection", async (socket, req) => {
     port: socket.remotePort,
   });
   showUsersLogged();
-
+  
   socket.on("data", async (data) => {
+    data = data.substring(data.indexOf("{"));
     console.log(
       "mensagem de " +
         socket.remoteAddress +
@@ -51,6 +52,7 @@ server.on("connection", async (socket, req) => {
         " = " +
         data
     );
+
 
     let message;
     let json = null;
@@ -70,7 +72,7 @@ server.on("connection", async (socket, req) => {
               " = " +
               message
           );
-          socket.write(message);
+          socket.write(message, "utf8");
         }
       }
     } catch (e) {}
@@ -278,6 +280,7 @@ async function treatUpdateRequest(json) {
       user = { ...res };
       delete user._id;
       user.result = true;
+      user.receptor = user.receptor ?? 99;
     }
   });
   if (user) {
