@@ -22,9 +22,10 @@ const client = new MongoClient(uri, {
 setInterval(showUsersLogged, 30000);
 // ----------------------------------------------
 
-const port = 22000;
+const port = 8082;
 server.listen(port, () => console.log(`Server listening on port ${port}`));
 let userToUpdate = null;
+let userLoggedOn = null;
 
 server.on("connection", async (socket, req) => {
   socket.setEncoding("utf8");
@@ -41,7 +42,7 @@ server.on("connection", async (socket, req) => {
     port: socket.remotePort,
   });
   showUsersLogged();
-  
+
   socket.on("data", async (data) => {
     data = data.substring(data.indexOf("{"));
     console.log(
@@ -52,7 +53,6 @@ server.on("connection", async (socket, req) => {
         " = " +
         data
     );
-
 
     let message;
     let json = null;
@@ -123,12 +123,22 @@ function treatRequest(json) {
       return treatLogin(json);
     case 199:
       return treatLogout();
+    case 400:
+      return treatUserListRequest();
+    case 500:
+      return treatDonation(json);
+    case 600:
+      return treatAdminListRequest();
+    case 610:
+      return treatAdminRequest(json);
     case 700:
       return treatCadastro(json);
     case 710:
       return treatUpdateRequest(json);
     case 720:
       return treatUpdate(json);
+    case 900:
+      return treatUserDeletion();
     default:
       break;
   }
@@ -137,6 +147,104 @@ function treatRequest(json) {
 function treatLogout() {
   console.log("Usuário requisitou o logout!");
   return "";
+}
+async function treatDonation(json) {
+  console.log("entrando no tratamento de doação");
+  const promise = client
+    .db("distribuidos")
+    .collection("donations")
+    .insertOne(json.message);
+  await promise.then((res) => {});
+  //return stringify({ protocol: 701, message: { result: true } });
+}
+
+async function treatUserDeletion() {
+  let userFound = false;
+  const promise = client
+    .db("distribuidos")
+    .collection("users")
+    .deleteOne({ username: userLoggedOn });
+  await promise.then((res, err) => {
+    if (res) {
+      userFound = true;
+    } else {
+      reason = "User not found";
+    }
+  });
+
+  if (userFound) {
+    return stringify({
+      protocol: 901,
+      message: {
+        result: true,
+      },
+    });
+  } else {
+    return stringify({
+      protocol: 902,
+      message: {
+        result: false,
+        reason,
+      },
+    });
+  }
+}
+
+async function treatAdminRequest(json) {
+  const promise = client
+    .db("distribuidos")
+    .collection("users")
+    .updateOne(
+      { username: json.message.username },
+      { $set: { receptor: json.message.receptor } }
+    );
+
+  console.log(json.message.username, json.message.receptor);
+
+  await promise.then((res, err) => {});
+
+  return stringify({
+    protocol: 611,
+    message: {
+      result: true,
+    },
+  });
+}
+
+async function treatAdminListRequest() {
+  const list = [];
+  const users = client
+    .db("distribuidos")
+    .collection("users")
+    .find({ receptor: 0 });
+  await users.forEach((element) => {
+    list.push(element);
+  });
+  return stringify({
+    protocol: 601,
+    message: {
+      result: true,
+      list,
+    },
+  });
+}
+
+async function treatUserListRequest() {
+  const list = [];
+  const users = client
+    .db("distribuidos")
+    .collection("users")
+    .find({ receptor: 1 });
+  await users.forEach((element) => {
+    list.push(element);
+  });
+  return stringify({
+    protocol: 401,
+    message: {
+      result: true,
+      list,
+    },
+  });
 }
 
 async function treatCadastro(json) {
@@ -232,6 +340,7 @@ async function treatLogin(json) {
   });
   //----------------------------------------------------------------------------
   if (validated) {
+    userLoggedOn = json.message.username;
     return stringify({
       protocol: 101,
       message: {
@@ -349,6 +458,11 @@ async function treatUpdate(json) {
       result: true,
     },
   });
+}
+
+async function isAdmin() {
+  //TODO: tratar e verificar se usuário logado é um admin
+  return true;
 }
 
 function stringify(json) {
