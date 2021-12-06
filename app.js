@@ -22,7 +22,7 @@ const client = new MongoClient(uri, {
 setInterval(showUsersLogged, 30000);
 // ----------------------------------------------
 
-const port = 8082;
+const port = 22000;
 server.listen(port, () => console.log(`Server listening on port ${port}`));
 let userToUpdate = null;
 let userLoggedOn = null;
@@ -345,6 +345,7 @@ async function treatLogin(json) {
       protocol: 101,
       message: {
         result: true,
+        usertype: 3
       },
     });
   } else {
