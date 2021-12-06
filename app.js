@@ -125,7 +125,7 @@ function treatRequest(json) {
       return treatLogout();
     case 400:
       return treatUserListRequest();
-    case 500:
+    case 510:
       return treatDonation(json);
     case 600:
       return treatAdminListRequest();
@@ -155,7 +155,7 @@ async function treatDonation(json) {
     .collection("donations")
     .insertOne(json.message);
   await promise.then((res) => {});
-  //return stringify({ protocol: 701, message: { result: true } });
+  return stringify({ protocol: 511, message: { result: true } });
 }
 
 async function treatUserDeletion() {
